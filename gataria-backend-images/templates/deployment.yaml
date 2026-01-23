@@ -28,55 +28,67 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       serviceAccountName: {{ include "gataria-backend-images.serviceAccountName" . }}
+
       {{- with .Values.podSecurityContext }}
       securityContext:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+
       containers:
         - name: {{ .Chart.Name }}
+
           {{- with .Values.securityContext }}
           securityContext:
             {{- toYaml . | nindent 12 }}
           {{- end }}
+
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+
           ports:
             - name: http
               containerPort: {{ .Values.service.targetPort }}
               protocol: TCP
+
           env:
-            - name: MONGO_URL
-              value: {{ .Values.env.mongo.url | quote }}
-            - name: MONGODATABASE
-              value: {{ .Values.env.mongo.database | quote }}
-          # {{- with .Values.livenessProbe }}
-          # livenessProbe:
-          #   {{- toYaml . | nindent 12 }}
-          # {{- end }}
-          # {{- with .Values.readinessProbe }}
-          # readinessProbe:
-          #   {{- toYaml . | nindent 12 }}
-          # {{- end }}
-          # {{- with .Values.resources }}
+            - name: CATAPI_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: gataria-envs
+                  key: CATAPI_URL
+
+          livenessProbe:
+            httpGet:
+              path: /images/healthcheck
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 3
+
           resources:
-            {{- toYaml . | nindent 12 }}
-          {{- end }}
+            {{- toYaml .Values.resources | nindent 12 }}
+
           {{- with .Values.volumeMounts }}
           volumeMounts:
             {{- toYaml . | nindent 12 }}
           {{- end }}
+
       {{- with .Values.volumes }}
       volumes:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+
       {{- with .Values.affinity }}
       affinity:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+
       {{- with .Values.tolerations }}
       tolerations:
         {{- toYaml . | nindent 8 }}

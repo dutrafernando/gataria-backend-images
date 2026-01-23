@@ -5,12 +5,12 @@ metadata:
   labels:
     {{- include "gataria-backend-images.labels" . | nindent 4 }}
 spec:
-  type: {{ .Values.service.NodePort }}
+  type: {{ .Values.service.type }}
   ports:
-    - port: {{ .Values.service.targetPort }}
-      targetPort: http
+    - port: {{ .Values.service.port }}
+      targetPort: {{ .Values.service.targetPort }}
       protocol: TCP
       name: http
-      NodePort: {{ .Values.service.NodePort }}
+      nodePort: {{ .Values.service.nodePort }}
   selector:
     {{- include "gataria-backend-images.selectorLabels" . | nindent 4 }}
