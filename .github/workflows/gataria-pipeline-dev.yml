@@ -1,0 +1,54 @@
+---
+name: Gataria CI/CD Dev
+on:
+  push:
+    branches:
+      - dev
+
+jobs:
+  build-dev:
+    name: Build dev
+    if: contains (github.ref, 'dev')
+    runs-on: self-hosted
+    steps:
+    - name: Clone repository
+      uses: actions/checkout@v3
+    - name: Docker login
+      run: docker login -u ${{ vars.DOCKER_LOGIN }} -p ${{ secrets.DOCKER_PASS }}
+    - name: Docker build
+      run: docker build -t fernandindtjr/gataria-backend-images:dev$GITHUB_SHA . 
+    - name: docker push
+      run: docker push fernandindtjr/gataria-backend-images:dev$GITHUB_SHA
+  test-dev:
+    name: Test dev
+    if: contains (github.ref, 'dev')
+    runs-on: self-hosted
+    needs: build-dev
+    steps:
+    - uses: actions/checkout@v5
+    - name: Use Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+    - name: Install dependencies
+      run: npm ci
+    - name: Run test
+      run: npm test
+      
+  deploy-dev:
+    name: Deploy dev
+    if: contains (github.ref, 'dev')
+    runs-on: self-hosted
+    needs: test-dev
+    container: 
+      image: fernandindtjr/gataria-deploy:1.0
+      credentials: 
+        username: ${{ vars.DOCKER_LOGIN }}
+        password: ${{ secrets.DOCKER_PASS }}
+    steps:
+    - name: Add ChartMuseum Repo
+      run: helm repo add gataria-charts http://chartmuseum:8080   
+    - name: helm update repo
+      run: helm repo update
+    - name: Deploy prod
+      run: helm upgrade gataria-frontend gataria-charts/gataria-frontend -n dev --set "image.tag=dev$GITHUB_SHA" --set "ingress.hosts[0].hosts=dev.gataria.example" --set "ingress.hosts[0].paths[0].path=/*" --set "ingress.hosts[0|.paths[0].pathType=Prefix" || helm install gataria-frontend gataria-charts/gataria-frontend -n dev --set "image.tag=dev$GITHUB_SHA" --set "ingress.hosts[0].hosts=gataria.example" --set "ingress.hosts[0].paths[0].path=/*" --set "ingress.hosts[0|.paths[0].pathType=Prefix" 
