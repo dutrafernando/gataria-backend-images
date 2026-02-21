@@ -1,0 +1,53 @@
+---
+name: Gataria CI/CD prod
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-prod:
+    name: Build prod
+    runs-on: self-hosted
+    steps:
+    - name: Clone repository
+      uses: actions/checkout@v3
+    - name: Docker login
+      run: docker login -u ${{ vars.DOCKER_LOGIN }} -p ${{ secrets.DOCKER_PASS }}
+    - name: Docker build
+      run: docker build -t fernandindtjr/gataria-backend-images:prod$GITHUB_SHA . 
+    - name: docker push
+      run: docker push fernandindtjr/gataria-backend-images:prod$GITHUB_SHA
+  test-prod:
+    name: Test prod
+    runs-on: self-hosted
+    needs: build-prod
+    env:
+      CATAPI_URL: ${{ vars.CATAPI_URL }} 
+    steps:
+    - uses: actions/checkout@v5
+    - name: Use Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+    - name: Install dependencies
+      run: npm ci
+    - name: Run test
+      run: npm test
+      
+  deploy-prod:
+    name: Deploy prod
+    runs-on: self-hosted
+    needs: test-prod
+    container: 
+      image: fernandindtjr/gataria-deploy:1.0 
+      credentials: 
+        username: ${{ vars.DOCKER_LOGIN }}
+        password: ${{ secrets.DOCKER_PASS }}
+    steps:
+    - name: Add ChartMuseum Repo
+      run: helm repo add gataria-charts http://chartmuseum:8080   
+    - name: helm update repo
+      run: helm repo update
+    - name: Deploy prod
+      run: helm upgrade gataria-backend-images gataria-charts/gataria-backend-images -n prod --set "image.tag=prod$GITHUB_SHA" --set "env.mongo.database=prod" --set "ingress.hosts[0].host=gataria.example" --set "ingress.hosts[0].paths[0].path=/images" --set "ingress.hosts[0].paths[0].pathType=Prefix" || helm install gataria-backend-catalog gataria-charts/gataria-backend-catalog -n prod --set "image.tag=prod$GITHUB_SHA" --set "env.mongo.database=prod" --set "ingress.hosts[0].host=gataria.example" --set "ingress.hosts[0].paths[0].path=/images" --set "ingress.hosts[0].paths[0].pathType=Prefix" 
