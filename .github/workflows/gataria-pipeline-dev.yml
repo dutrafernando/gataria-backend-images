@@ -24,6 +24,8 @@ jobs:
     if: contains (github.ref, 'dev')
     runs-on: self-hosted
     needs: build-dev
+    env:
+      CATAPI_URL: ${{ vars.CATAPI_URL }} 
     steps:
     - uses: actions/checkout@v5
     - name: Use Node.js
@@ -33,7 +35,7 @@ jobs:
     - name: Install dependencies
       run: npm ci
     - name: Run test
-      run: npm test
+      run: CATAPI_URL=${{ vars.CATAPI_URL }} npm test
       
   deploy-dev:
     name: Deploy dev
@@ -41,7 +43,7 @@ jobs:
     runs-on: self-hosted
     needs: test-dev
     container: 
-      image: fernandindtjr/gataria-deploy:1.0
+      image: fernandindtjr/gataria-deploy:1.0 
       credentials: 
         username: ${{ vars.DOCKER_LOGIN }}
         password: ${{ secrets.DOCKER_PASS }}
@@ -50,5 +52,5 @@ jobs:
       run: helm repo add gataria-charts http://chartmuseum:8080   
     - name: helm update repo
       run: helm repo update
-    - name: Deploy prod
-      run: helm upgrade gataria-frontend gataria-charts/gataria-frontend -n dev --set "image.tag=dev$GITHUB_SHA" --set "ingress.hosts[0].hosts=dev.gataria.example" --set "ingress.hosts[0].paths[0].path=/*" --set "ingress.hosts[0|.paths[0].pathType=Prefix" || helm install gataria-frontend gataria-charts/gataria-frontend -n dev --set "image.tag=dev$GITHUB_SHA" --set "ingress.hosts[0].hosts=gataria.example" --set "ingress.hosts[0].paths[0].path=/*" --set "ingress.hosts[0|.paths[0].pathType=Prefix" 
+    - name: Deploy dev
+      run: helm upgrade gataria-backend-images gataria-charts/gataria-backend-images -n dev --set "image.tag=dev$GITHUB_SHA" --set "env.mongo.database=dev" --set "ingress.hosts[0].host=dev.gataria.example" --set "ingress.hosts[0].paths[0].path=/images" --set "ingress.hosts[0].paths[0].pathType=Prefix" || helm install gataria-backend-catalog gataria-charts/gataria-backend-catalog -n dev --set "image.tag=dev$GITHUB_SHA" --set "env.mongo.database=dev" --set "ingress.hosts[0].host=dev.gataria.example" --set "ingress.hosts[0].paths[0].path=/images" --set "ingress.hosts[0].paths[0].pathType=Prefix" 
